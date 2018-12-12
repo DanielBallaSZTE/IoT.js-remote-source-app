@@ -1,0 +1,9 @@
+.content {
+  margin-left: 3%;
+  margin-top: 2%;
+};
+
+.inline-data {
+  display: inline-block;
+  width: 40%;
+};

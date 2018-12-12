@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" type="text/css" href="web_client.css">
+  <link rel="stylesheet" type="text/css" href="https://bootswatch.com/4/journal/bootstrap.min.css">
+
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script
+	       src="https://code.jquery.com/jquery-3.3.1.min.js"
+			   integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+			   crossorigin="anonymous">
+  </script>
+
+</head>
+<body>
+<div class="content">
+  <div class="inline-data">
+    <div style="display: inline-block">
+      <div class="input-group mb-3">
+        <div class="input-group-prepend">
+          <span class="input-group-text">mqtt://</span>
+        </div>
+        <input class="form-control" id="server_address" placeholder="Address of the broker">
+      </div>
+    </div>
+
+    <button id="connect" type="button" class="btn btn-outline-info">Connect</button>
+  </div>
+
+  <label for="source_code">Source code</label>
+  <textarea style="width: 50%;" class="form-control" id="source_code" rows="3"></textarea>
+  <br/>
+  <div class="content">
+    <div style="display: inline-block;">
+      Device list:
+      <div class="custom-control custom-checkbox">
+        <input type="checkbox" class="custom-control-input" id="broadcast">
+        <label class="custom-control-label" for="broadcast">Send as broadcast(all devices receive, other checkboxes are ignored)</label>
+      </div>
+      <hr/>
+      <div id="device-list">
+
+      </div>
+    </div>
+    <br/><br/>
+    <button style="margin-left: 0%; display: inline-block" id="send_source" type="button" class="btn btn-outline-info">Send source</button>
+  </div>
+  <br/><br/>
+  <p>
+  Server message:
+  </p>
+  <ul id="mqtt_entries"></ul>
+</div>
+
+<script>
+var client;
+var devices = [];
+
+function isConnected() {
+  if (client) {
+    return client.connected;
+  }
+
+  return false;
+}
+
+setInterval(function() {
+  for (var i = 0; i < devices.length; i++) {
+    devices[i].counter++;
+    if (devices[i].counter == 10) {
+      console.log(devices[i].id);
+      $('#' + devices[i].id).remove();
+      devices.splice(i, 1);
+    }
+  }
+}, 1000);
+
+function sendSource() {
+  if (!isConnected()) {
+    return;
+  }
+
+  var src = document.getElementById("source_code").value;
+
+  if ($('#broadcast').prop('checked')) {
+    for (var i = 0; i < devices.length; i++) {
+      client.publish("iotjs/source/" + devices[i], src);
+    }
+  } else {
+    $('.device-box').each(function() {
+      if ($(this).prop('checked')) {
+        client.publish("iotjs/source/" + $(this).attr('id'), src);
+      }
+    });
+  }
+};
+
+$("#send_source").click(sendSource);
+
+$('#connect').click(function() {
+  if (isConnected()) {
+    return;
+  }
+
+  var client_url = "mqtt://";
+  client_url += $('#server_address').val();
+  client = mqtt.connect(client_url);
+
+  client.on('connect', function() {
+    client.subscribe("mqtt/demo");
+    client.subscribe("iot/source/#");
+
+    // Device enumeration services
+    client.subscribe("iotjs/devices");
+
+    $('#connect').addClass('disabled');
+    $('#connect').html('Connected');
+
+    client.on("message", function (topic, payload) {
+      if (topic == 'iotjs/devices') {
+        var id = payload.toString().slice(0, -2);
+        var obj = {
+          id: id,
+          counter: 0,
+        }
+        // TODO: last 2 characters are ??
+        var exists = devices.map(function(device) { return device.id; }).indexOf(id);
+
+        if (exists < 0) {
+          devices.push(obj);
+
+          var device = '\
+          <div class="custom-control custom-checkbox" id="device-"' + id + '">\
+            <input type="checkbox" class="custom-control-input device-box" id="' + id + '">\
+            <label class="custom-control-label" for="' + id + '">' + id + '</label>\
+          </div>\
+          ';
+
+          $('#device-list').append(device);
+        } else {
+          devices[exists].counter = 0;
+        }
+
+        return;
+      }
+
+
+      var node = document.createElement("li");
+      node.appendChild(document.createTextNode(topic + " msg: " + payload));
+      document.querySelector("#mqtt_entries").appendChild(node);
+    });
+    client.publish("mqtt/demo", "hello world!");
+  });
+});
+</script>
+
+</body>
+</html>
