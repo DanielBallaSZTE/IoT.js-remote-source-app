@@ -68,8 +68,8 @@ setInterval(function() {
   for (var i = 0; i < devices.length; i++) {
     devices[i].counter++;
     if (devices[i].counter == 10) {
-      console.log(devices[i].id);
-      $('#' + devices[i].id).remove();
+      var element = document.getElementById('device-' + devices[i].id);
+      element.remove();
       devices.splice(i, 1);
     }
   }
@@ -130,7 +130,7 @@ $('#connect').click(function() {
           devices.push(obj);
 
           var device = '\
-          <div class="custom-control custom-checkbox" id="device-"' + id + '">\
+          <div class="custom-control custom-checkbox" id="device-' + id + '">\
             <input type="checkbox" class="custom-control-input device-box" id="' + id + '">\
             <label class="custom-control-label" for="' + id + '">' + id + '</label>\
           </div>\
